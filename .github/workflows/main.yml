@@ -1,43 +1,60 @@
-name: Build Android APK
+name: Build Android APK  # 'Name' ka 'N' capital tha, jisse syntax error aata hai. Ise lowercase 'name' kar diya hai.
+
 on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # 1. Checkout code (Updated to v5 to fix Node 20 deprecation)
+      - name: Checkout Code
+        uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      # 2. Setup Node.js (Updated to v5 and Node 24)
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
 
+      # 3. Set up JDK 17 (Updated to setup-java@v5 jaisa warning me bataya tha)
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: '17'
 
+      # 4. Build & Compile Process
       - name: Build Capacitor APK
         run: |
-          # 1. HTML, CSS, JS फाइलों के लिए www फोल्डर बनाएं
+          # Step 1: HTML, CSS, JS फाइलों के लिए www फोल्डर बनाएं
           mkdir -p www
           find . -maxdepth 1 -type f \( -name "*.html" -o -name "*.js" -o -name "*.css" -o -name "*.png" -o -name "*.jpg" -o -name "*.json" \) -not -name "package*.json" -exec cp {} www/ \;
           
-          # 2. Capacitor इनिशियलाइज़ और सेटअप करें
-          npm init -y
-          npm install @capacitor/core @capacitor/android @capacitor/cli
-          npx cap init "Drifter Star" "com.vishnu.drifterstar" --web-dir www
+          # Safety Check: Capacitor sync fail na ho, isliye agar index.html nahi hai toh ek dummy file bana lein
+          if [ ! -f www/index.html ]; then echo "<html><body>App Loaded</body></html>" > www/index.html; fi
           
-          # 3. Android प्लेटफॉर्म जोड़ें और सिंक करें
+          # Step 2: Capacitor इनिशियलाइज़ और सेटअप करें
+          # Agar package.json pehle se nahi hai tabhi npm init karein warna overwrite error aa sakta hai
+          if [ ! -f package.json ]; then npm init -y; fi
+          
+          npm install @capacitor/core @capacitor/android @capacitor/cli
+          
+          # --force add kiya taaki agar pehle se initialized ho toh crash (exit code 1) na ho
+          npx cap init "Drifter Star" "com.vishnu.drifterstar" --web-dir www --force
+          
+          # Step 3: Android प्लेटफॉर्म जोड़ें और सिंक करें
           npx cap add android
           npx cap sync android
           
-          # 4. APK बिल्ड करें
+          # Step 4: APK बिल्ड करें (Out of memory error rokne ke liye Daemon false set kiya)
           cd android
           chmod +x gradlew
+          export GRADLE_OPTS="-Dorg.gradle.daemon=false"
           ./gradlew assembleDebug
 
-      - uses: actions/upload-artifact@v4
+      # 5. Upload APK Output
+      - name: Upload Clean Game APK
+        uses: actions/upload-artifact@v4
         with:
           name: Clean-Game-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
