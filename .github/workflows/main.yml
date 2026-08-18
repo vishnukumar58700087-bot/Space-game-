@@ -1,4 +1,4 @@
-name: Build Android APK  # 'Name' ka 'N' capital tha, jisse syntax error aata hai. Ise lowercase 'name' kar diya hai.
+name: Build Android APK #
 
 on: [push]
 
